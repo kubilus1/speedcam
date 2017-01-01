@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <!-- EXTERNAL LIBS-->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+	<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+
+    <!-- EXAMPLE SCRIPT -->
+    <script type="text/javascript">
+
+      google.charts.load('current', {'packages':['corechart', 'controls', 'charteditor']});
+      google.charts.setOnLoadCallback(drawChart);
+        
+      // onload callback
+function drawChart() {
+
+    console.log("drawChart");
+
+    var rets = createChart();
+    var data = rets[0];
+    var chart = rets[1];
+    var lastitem = rets[2];
+
+    function getChartData() {
+        $.ajax({
+        //url:'{{ url_for("ajaxtest") }}',
+        url:'{{ url_for("speeddata") }}',
+        async: true,
+        data: { 'lastid': lastitem },
+        context: this,
+        success: function(d) {
+            console.log("Checking for new data...");
+            if(d.items.length > 0) {
+                lastitem = d.items[d.items.length - 1].id;
+                //lastitem = d.items[0].id;
+                console.log('lastitem ' + lastitem);
+                console.log("Got results");
+                updateChart(d, data, chart);
+            }
+        },
+        complete: function() {
+            setTimeout(getChartData, 30000);
+        }
+        });
+    }
+    getChartData();
+}
+
+function createChart() {
+    var data = new google.visualization.DataTable();
+    data.addColumn('string', 'id');
+    data.addColumn('datetime', 'timestamp');
+    data.addColumn('number', 'mph');
+    data.addColumn('string', 'imgpath');
+    data.addColumn('string', 'vidpath');
+    data.addColumn({ type:'string', role: 'style' });
+
+    var lastitem;
+
+    $.ajax({
+    //url:'{{ url_for("ajaxtest") }}',
+    url:'{{ url_for("speeddata") }}',
+    async: false,
+    success: function(d) {
+        console.log("Got results");
+        lastitem = d.items[d.items.length - 1].id;
+        $.each(d.items, function (i, row) {
+        data.addRow([
+                row.id,
+                new Date(row.t),
+                row.mph,
+                row.imgname,
+                row.vidname,
+                row.color
+            ]);
+        });
+    }
+    });
+    var view = new google.visualization.DataView(data);
+    console.log("NUM ROWS:" + data.getNumberOfRows());
+    view.setColumns([1,2,5]);
+
+    var dash = new google.visualization.Dashboard(document.getElementById('dashboard'));
+  
+    var d2 = new Date(); 
+    var d1 = new Date();
+    d1.setDate(d2.getDate() - 1);
+
+    console.log(d1);
+    console.log(d2);
+
+    var control = new google.visualization.ControlWrapper({
+        controlType: 'ChartRangeFilter',
+        containerId: 'control_div',
+        options: {
+            filterColumnIndex: 0,
+            ui: {
+                chartType: 'ScatterChart',
+                chartOptions: {
+                    height: 100,
+                    width: 900,
+                    chartArea: {
+                        width: '80%'
+                    },
+                    hAxis: {
+                        format: 'M/d/yy'
+                    }
+                },
+                chartView: {
+                    columns: [0,1,2]
+                }
+            }
+        },
+        state: {
+            range: {
+                'start': d1, 
+            }
+        }
+    }); 
+
+    var chart2 = new google.visualization.ChartWrapper({
+        chartType: 'ScatterChart',
+        containerId: 'chart_div',
+        options: {
+            width: 900,
+            height: 500,
+            hAxis: {
+                format: 'M/d/yy h:mm a',
+                gridlines: { count: 15 }
+            }
+        }
+    });
+
+    dash.bind(control, chart2);
+    dash.draw(view);
+
+    google.visualization.events.addListener(chart2, 'select', selectHandler);
+
+    function selectHandler(e) {
+        var row = dash.getSelection()[0].row;
+        var imgpath = data.getValue(row, 3);
+        var vidpath = data.getValue(row, 4);
+        var timestamp = data.getValue(row, 0);    
+        var staticurl = "{{ url_for('static', filename='') }}"; 
+        console.log("ROW:"+row);
+        /* 
+        var html = "<img src=\"" + staticurl + imgpath + "\" /> \
+        <form id='aform' action=\"{{ url_for('del_time') }}\" method=POST > \
+        <button type=\"submit\" value=\"delete\" > delete </button> \
+        <input id='timestamp' type=hidden value=\""+ timestamp +"\" name=\"timestamp\" /> \
+        <video width=\"640\" height=\"480\" controls> \
+        <source src=\"" + staticurl + vidpath + "\" type=\"video/ogg\"> \
+            Your browser does not support the video tag. \
+        </video> \
+        </form>";
+        <a href=\"javascript:void();\" id=\"del\">DELETE</a> \
+        */
+
+        var html = "<img src=\"" + staticurl + imgpath + "\" /> \
+        <input id='timestamp' type=hidden value=\""+timestamp+"\" /> \
+        <button id=\"del\" >DELETE</button> \
+        <video width=\"640\" height=\"480\" controls> \
+        <source src=\"" + staticurl + vidpath + "\" type=\"video/ogg\"> \
+            Your browser does not support the video tag. \
+        </video>";
+
+        document.getElementById('details').innerHTML = html
+
+        //$('#del').on('click', do_click);
+
+        $('#del').on('click', function() {
+            console.log("Removing:" + row);
+            console.log($('#timestamp').val());
+        
+            $.ajax({
+                url: "{{ url_for('del_time') }}",
+                method: "POST",
+                data: {
+                    timestamp: $('#timestamp').val()
+                },
+                success: function() {
+                    data.removeRow(row);
+                    var view = new google.visualization.DataView(data);
+                    view.setColumns([1,2,5]);
+                    dash.draw(view);
+                }
+            });
+        });
+
+        //console.log(html);
+    }
+
+    return [data, dash, lastitem];
+}
+
+function updateChart(d, data, dash) {
+    console.log("Updating " +  d.items.length + " entries.");
+
+    $.each(d.items, function (i, row) {
+    data.addRow([
+            row.id,
+            new Date(row.t),
+            row.mph,
+            row.imgname,
+            row.vidname,
+            row.color
+        ]);
+    });
+
+    var view = new google.visualization.DataView(data);
+    view.setColumns([1,2,5]);
+    dash.draw(view);
+    console.log("NUM ROWS:" + data.getNumberOfRows());
+}
+
+    </script>
+
+  </head>
+  <body>
+      Chart:
+    <div id="chart" style="width: 100%;"></div>
+		<div id="dashboard">
+            <div id="chart_div"></div>
+            <div id="control_div"></div>
+		</div>
+        <br>
+		<div id="details"> </div>
+
+  </body>
+</html>

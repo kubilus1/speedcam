@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <!-- EXTERNAL LIBS-->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+	<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+
+    <!-- EXAMPLE SCRIPT -->
+    <script type="text/javascript">
+
+      google.charts.load('current', {'packages':['corechart', 'controls', 'charteditor']});
+      google.charts.setOnLoadCallback(drawChart);
+        
+      console.log("STUFF");
+
+      // onload callback
+function drawChart() {
+
+    console.log("drawChart");
+
+    var rets = createChart2();
+    var data = rets[0];
+    var chart = rets[1];
+    var lastitem;
+
+    function getChartData() {
+        $.ajax({
+        //url:'{{ url_for("ajaxtest") }}',
+        url:'{{ url_for("speeddata") }}',
+        async: true,
+        data: { 'lastid': lastitem },
+        context: this,
+        success: function(d) {
+            if(d.items.length > 0) {
+                lastitem = d.items[d.items.length - 1].id;
+                //lastitem = d.items[0].id;
+                console.log('lastitem ' + lastitem);
+                console.log("Got results");
+                updateChart2(d, data, chart);
+            }
+        },
+        complete: function() {
+            setTimeout(getChartData, 30000);
+        }
+        });
+    }
+    getChartData();
+}
+
+function createChart() {
+
+    var data = new google.visualization.DataTable();
+    data.addColumn('number', 'id');
+    data.addColumn('number', 'col1');
+    data.addColumn('number', 'col2');
+    var chart = new google.visualization.LineChart($('#chart').get(0));
+    chart.draw(data, {
+        title: 'Wimp Weather Station'
+    });
+
+    return [data, chart];
+}
+
+function updateChart(d, data, chart) {
+    $.each(d.items, function (i, row) {
+    console.log(row);
+    data.addRow([
+            (row.id),
+            parseFloat(row.col1),
+            parseFloat(row.col2)
+        ]);
+    });
+
+    chart.draw(data, {
+        title: 'Wimp Weather Station'
+    });
+}
+
+
+function createChart2() {
+    var data = new google.visualization.DataTable();
+    data.addColumn('string', 'id');
+    data.addColumn('datetime', 'timestamp');
+    data.addColumn('number', 'mph');
+    data.addColumn('string', 'path');
+    data.addColumn({ type:'string', role: 'style' });
+
+    $.ajax({
+    //url:'{{ url_for("ajaxtest") }}',
+    url:'{{ url_for("speeddata") }}',
+    async: false,
+    success: function(d) {
+        console.log("Got results");
+        //console.log(d.items);
+        //updateChart2(d, data, view, control, chart, dash);
+        //getChartData();
+        $.each(d.items, function (i, row) {
+        data.addRow([
+                row.id,
+                new Date(row.t),
+                row.mph,
+                row.filename,
+                row.color
+            ]);
+        });
+
+        //dash.bind([control], [chart]);
+        //console.log(dash);
+        //dash.draw(view);
+    }
+    });
+    var view = new google.visualization.DataView(data);
+    view.setColumns([1,2,4]);
+
+    var dash = new google.visualization.Dashboard(document.getElementById('dashboard'));
+   
+    var control = new google.visualization.ControlWrapper({
+        controlType: 'ChartRangeFilter',
+        containerId: 'control_div',
+        options: {
+            filterColumnIndex: 0,
+            ui: {
+                chartType: 'ScatterChart',
+                chartOptions: {
+                    height: 100,
+                    width: 900,
+                    chartArea: {
+                        width: '80%'
+                    },
+                    hAxis: {
+                        format: 'M/d/yy'
+                    }
+                },
+                chartView: {
+                    columns: [0,1,2]
+                }
+            }
+        }
+    }); 
+
+    var chart2 = new google.visualization.ChartWrapper({
+        chartType: 'ScatterChart',
+        containerId: 'chart_div',
+        options: {
+            width: 900,
+            height: 500,
+            hAxis: {
+                format: 'M/d/yy h:mm a',
+                gridlines: { count: 15 }
+            }
+        }
+    });
+
+    dash.bind(control, chart2);
+    dash.draw(view);
+
+    google.visualization.events.addListener(chart2, 'select', selectHandler);
+
+    function selectHandler(e) {
+        var row = dash.getSelection()[0].row;
+        var imgpath = data.getValue(row, 3);
+        var timestamp = data.getValue(row, 0);    
+        var staticurl = "{{ url_for('static', filename='') }}"; 
+        var html = "<img src=\"" + staticurl + imgpath + "\" /> \
+        <form action=\"{{ url_for('del_time') }}\" method=POST > \
+        <button type=\"submit\" value=\"delete\" > delete </button> \
+        <input type=hidden value=\""+ timestamp +"\" name=\"timestamp\" /> \
+    </form>";
+        
+        //console.log(html);
+        document.getElementById('details').innerHTML = html
+    }
+
+    return [data, dash];
+}
+
+function updateChart2(d, data, dash) {
+    console.log("Updating " +  d.items.length + " entries.");
+
+    $.each(d.items, function (i, row) {
+    data.addRow([
+            row.id,
+            new Date(row.t),
+            row.mph,
+            row.filename,
+            row.color
+        ]);
+    });
+
+    var view = new google.visualization.DataView(data);
+    view.setColumns([1,2,4]);
+    dash.draw(view);
+}
+
+    </script>
+
+  </head>
+  <body>
+      Chart:
+    <div id="chart" style="width: 100%;"></div>
+		<div id="dashboard">
+            <div id="chart_div"></div>
+            <div id="control_div"></div>
+		</div>
+        <br>
+		<div id="details"> </div>
+
+  </body>
+</html>
