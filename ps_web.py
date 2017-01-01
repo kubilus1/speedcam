@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-from flask import Flask, jsonify, render_template, Response, request, redirect, url_for, g
+from flask import Flask, jsonify, render_template, Response, request, redirect, url_for, g, send_file
 from pyspeed import SpeedImg
 import cv2
 from multiprocessing import Lock
@@ -9,6 +9,7 @@ import time
 import json
 import os
 import sys
+import io
 from Queue import Empty
 from dateutil import parser
 from redis_store import RedisStore
@@ -88,12 +89,38 @@ def speeddata(lastid=None):
 
     return jsonify(items=outitems)
 
-
 @app.route('/')
 def index():
     outitems = []
     #print outitems
     return render_template('index.html', items=outitems)
+
+@app.route('/images/cur.jpg')
+def curimg():
+    return send_file(io.BytesIO(frame),
+            attachment_filename='cur.jpg',
+            mimetype=('image/jpeg'))
+
+@app.route('/choose')
+def choose():
+    global si
+    return render_template('choose.html', x0=si.sX, y0=si.sY, x1=si.eX,
+            y1=si.eY)
+
+@app.route('/setbox', methods=['POST'])
+def setbox():
+    global si
+    print "Setbox"
+    
+    x0 = request.form['x0']
+    y0 = request.form['y0']
+    x1 = request.form['x1']
+    y1 = request.form['y1']
+
+    si.set_rect(x0, y0, x1, y1)
+
+    return "SET"
+
 
 @app.route('/del_time', methods=['POST'])
 def del_time():

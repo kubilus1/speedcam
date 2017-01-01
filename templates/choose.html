@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <!-- EXTERNAL LIBS-->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+	<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+
+    <!-- EXAMPLE SCRIPT -->
+    <script type="text/javascript">
+var x0 = {{ x0 }};
+var y0 = {{ y0 }};
+var x1 = {{ x1 }};
+var y1 = {{ y1 }};
+
+var mousedown = false;
+    
+function doCanvas() {
+    var canvas = document.getElementById("cselect");
+    var ctx = canvas.getContext("2d");
+    
+    var canvasOffset = $("#cselect").offset();
+    var offsetX = canvasOffset.left;
+    var offsetY = canvasOffset.top;
+
+    console.log("OFFSET: " + offsetX + ", " + offsetY);
+
+    do_it();
+
+    function do_it() {
+        img = new Image();
+        img.src = '{{ url_for("curimg") }}';
+        img.onload = function() {
+            ctx.drawImage(img, 10, 10);
+            drawbox();
+        }
+    }
+
+    drawbox();
+    
+    function drawbox() {
+        ctx.drawImage(img, 10, 10);
+        ctx.beginPath();
+        ctx.lineWidth="2";
+        if(mousedown == true) {
+            ctx.strokeStyle="blue";
+        } else {
+            ctx.strokeStyle="green";
+        }
+        ctx.rect(x0,y0,(x1-x0),(y1-y0));
+        ctx.stroke();
+    }
+
+    function mouseDown(e) {
+        x0 = parseInt(e.clientX - offsetX);
+        y0 = parseInt(e.clientY - offsetY);
+        console.log("MouseDown: " + x0 +", " + y0);
+        mousedown = true;
+        canvas.style.cursor="crosshair";
+    }
+
+    function mouseUp(e) {
+        x1 = parseInt(e.clientX - offsetX);
+        y1 = parseInt(e.clientY - offsetY);
+        console.log("MouseUp: " + x1 + ", " + y1);
+        mousedown = false;
+        canvas.style.cursor="default";
+        drawbox();
+
+        $.ajax({
+            url: "{{ url_for('setbox') }}",
+            method: "POST",
+            data: {
+                "x0": x0,
+                "y0": y0,
+                "x1": x1,
+                "y1": y1
+            }
+        });
+    }
+
+    function mouseMove(e) {
+        if (mousedown == true) {
+            x1 = parseInt(e.clientX - offsetX);
+            y1 = parseInt(e.clientY - offsetY);
+            drawbox();
+        }
+    }
+
+    $("#cselect").mousedown(function (e) {
+        mouseDown(e);
+    });
+    $("#cselect").mouseup(function (e) {
+        mouseUp(e);
+    });
+    $("#cselect").mousemove(function (e) {
+        mouseMove(e);
+    });
+}
+
+window.onload = doCanvas;
+
+    </script>
+
+  </head>
+  <body>
+  
+      <p> Select monitored area: </p>
+      <canvas id="cselect" width="800" height="600"> </canvas>
+      
+
+  </body>
+</html>

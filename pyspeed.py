@@ -326,10 +326,10 @@ class SpeedImg(object):
             if db.has_key('data'):
                 print "Loading settings...."
                 data = db['data']
-                self.sX = data.get('sX')
-                self.sY = data.get('sY')
-                self.eX = data.get('eX')
-                self.eY = data.get('eY')
+                self.sX = int(data.get('sX'))
+                self.sY = int(data.get('sY'))
+                self.eX = int(data.get('eX'))
+                self.eY = int(data.get('eY'))
                 self.width = self.eX - self.sX
                 self.height = self.eY - self.sY
                 self.baseline_img = self.check_img()
@@ -370,19 +370,29 @@ class SpeedImg(object):
                 tX = self.sX
                 self.sX = self.eX
                 self.eX = tX
-            self.width = self.eX - self.sX
             
             if self.sY > self.eY:
                 tY = self.sY
                 self.sY = self.eY
                 self.eY = tY
-            self.height = self.eY - self.sY
 
-            self.baseline_img = self.check_img()
-            #cv2.imshow('baseline', self.baseline_img)
+            self.set_rect(self.sX, self.sY, self.eX, self.eY)
 
-            print "RECT: (%s,%s) x (%s,%s) " % (self.sX,self.sY,self.eX,self.eY)    
-            self.save()
+
+    def set_rect(self, sX, sY, eX, eY):
+        self.sX = int(sX)
+        self.sY = int(sY)
+        self.eX = int(eX)
+        self.eY = int(eY)
+        
+        self.width = self.eX - self.sX
+        self.height = self.eY - self.sY
+
+        self.baseline_img = self.check_img()
+        #cv2.imshow('baseline', self.baseline_img)
+
+        print "RECT: (%s,%s) x (%s,%s) " % (self.sX,self.sY,self.eX,self.eY)    
+        self.save()
 
     def check_img(self):
         gray = self.img[1][self.sY:self.eY,self.sX:self.eX]
@@ -570,7 +580,7 @@ class SpeedImg(object):
                 continue
             if self.baseline_img is not None:
                 self.compare()
-                cv2.rectangle(self.img[1],(self.sX,self.sY),(self.eX,self.eY),(0,255,0),2)
+                cv2.rectangle(self.outimg,(self.sX,self.sY),(self.eX,self.eY),(0,255,0),2)
                 outimg = self.outimg
             else:
                 outimg = self.img[1]
